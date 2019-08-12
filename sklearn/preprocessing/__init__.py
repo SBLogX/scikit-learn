@@ -3,7 +3,7 @@ The :mod:`sklearn.preprocessing` module includes scaling, centering,
 normalization, binarization methods.
 """
 
-from ._function_transformer import FunctionTransformer
+from ._function_transformer import FunctionTransformer, DataFrameTransformer
 
 from .data import Binarizer
 from .data import KernelCenterer
@@ -39,6 +39,7 @@ from ._discretization import KBinsDiscretizer
 __all__ = [
     'Binarizer',
     'FunctionTransformer',
+    'DataFrameTransformer',
     'KBinsDiscretizer',
     'KernelCenterer',
     'LabelBinarizer',

@@ -114,8 +114,7 @@ class FunctionTransformer(BaseEstimator, TransformerMixin):
         self
         """
         X = self._check_input(X)
-        if (self.check_inverse and not (self.func is None or
-                                        self.inverse_func is None)):
+        if self.check_inverse and not (self.func is None or self.inverse_func is None):
             self._check_inverse_transform(X)
         return self
 
@@ -161,3 +160,26 @@ class FunctionTransformer(BaseEstimator, TransformerMixin):
     def _more_tags(self):
         return {'no_validation': True,
                 'stateless': True}
+
+
+class DataFrameTransformer(FunctionTransformer):
+    """
+    Base class for pandas DataFrame transformers.
+    The DataFrameTransformers are compatible with the sklearn API.
+    """
+    def __init__(self, transformation, mutate=True):
+        """
+        Initializes the transformer.
+        :param transformation: function taking a DataFrame, applying transformations on it and returning it.
+        :param mutate: if True, the transformer mutates the given DataFrame and returns it. The otherwise a copy of the
+        given DataFrame is transformed and returned.
+        """
+        self.mutate = mutate
+        super().__init__(func=transformation, validate=False)
+
+    def transform(self, x):
+        if self.mutate:
+            return super().transform(x)
+        else:
+            return super().transform(x.copy())
+

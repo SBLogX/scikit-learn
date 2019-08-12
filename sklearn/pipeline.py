@@ -13,15 +13,15 @@ from collections import defaultdict
 from itertools import islice
 
 import numpy as np
-from scipy import sparse
+import pandas as pd
 from joblib import Parallel, delayed
+from scipy import sparse
 
 from .base import clone, TransformerMixin
-from .utils.metaestimators import if_delegate_has_method
 from .utils import Bunch, _print_elapsed_time
-from .utils.validation import check_memory
-
 from .utils.metaestimators import _BaseComposition
+from .utils.metaestimators import if_delegate_has_method
+from .utils.validation import check_memory
 
 __all__ = ['Pipeline', 'FeatureUnion', 'make_pipeline', 'make_union']
 
@@ -1029,3 +1029,40 @@ def make_union(*transformers, **kwargs):
                         .format(list(kwargs.keys())[0]))
     return FeatureUnion(
         _name_estimators(transformers), n_jobs=n_jobs, verbose=verbose)
+
+
+class PandasFeatureUnion(FeatureUnion):
+    def fit_transform(self, X, y=None, **fit_params):
+        self._validate_transformers()
+        result = Parallel(n_jobs=self.n_jobs)(
+            delayed(_fit_transform_one)(trans, weight, X, y,
+                                        **fit_params)
+            for name, trans, weight in self._iter())
+
+        if not result:
+            # All transformers are None
+            return np.zeros((X.shape[0], 0))
+        Xs, transformers = zip(*result)
+        self._update_transformer_list(transformers)
+        if any(sparse.issparse(f) for f in Xs):
+            Xs = sparse.hstack(Xs).tocsr()
+        else:
+            Xs = self.merge_dataframes_by_column(Xs)
+        return Xs
+
+    @staticmethod
+    def merge_dataframes_by_column(Xs):
+        return pd.concat(Xs, axis="columns", copy=False)
+
+    def transform(self, X):
+        Xs = Parallel(n_jobs=self.n_jobs)(
+            delayed(_transform_one)(trans, weight, X)
+            for name, trans, weight in self._iter())
+        if not Xs:
+            # All transformers are None
+            return np.zeros((X.shape[0], 0))
+        if any(sparse.issparse(f) for f in Xs):
+            Xs = sparse.hstack(Xs).tocsr()
+        else:
+            Xs = self.merge_dataframes_by_column(Xs)
+        return Xs
